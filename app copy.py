@@ -1,29 +1,19 @@
-import requests
 import os
+import json
+import requests
+import pandas as pd
 import streamlit as st
-from pprint import  pprint
 
-
-# Define the base URI of the API
-#   - Potential sources are in `.streamlit/secrets.toml` or in the Secrets section
-#     on Streamlit Cloud
-#   - The source selected is based on the shell variable passend when launching streamlit
-#    (shortcuts are included in Makefile). By default it takes the cloud API url
-
-if 'BASE_URI' in os.environ:
-    BASE_URI = os.environ.get('BASE_URI')
+# ============================================================
+# CONFIG — API
+# ============================================================
+if 'API_URI' in os.environ:
+    BASE_URI = st.secrets[os.environ.get('API_URI')]
 else:
     BASE_URI = st.secrets['cloud_api_uri']
-# Add a '/' at the end if it's not there
+
 BASE_URI = BASE_URI if BASE_URI.endswith('/') else BASE_URI + '/'
-# Define the url to be used by requests.get to get a prediction (adapt if needed)
 url = BASE_URI + 'predict'
-
-# Just displaying the source for the API. Remove this in your final version.
-st.markdown(f"Working with {url}")
-
-#st.markdown("Now, the rest is up to you. Start creating your page.")
-
 
 # ============================================================
 # CONFIG — FEATURE MEDIANS
@@ -140,14 +130,13 @@ st.markdown("---")
 if st.button("🏁 Predict My Finish Time"):
 
     with st.spinner("Calculating..."):
-        st.write(feature_vector)
-        response = requests.post(url, json=feature_vector)
+        response = requests.get(url, params=feature_vector)
 
     if response.status_code == 200:
         result = response.json()
-        prediction = result.get("predicted_finish_time", None)
+        prediction = result.get('prediction', None)
 
-        if prediction is not None:
+        if prediction:
             hours   = int(prediction // 60)
             minutes = int(prediction % 60)
 
