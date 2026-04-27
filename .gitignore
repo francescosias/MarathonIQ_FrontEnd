@@ -6,6 +6,13 @@
 .python-version
 *.pyc
 **/build
+venv/
+.venv/
+bin/
+lib/
+env/
+__pycache__/
+*.pyc
 
 # Ignore these macos generated files
 .DS_Store
@@ -25,7 +32,7 @@ raw_data/
 # Credentials (or files with potentially credentials inside)
 #.env
 .credentials
-#secrets.toml
+secrets.toml
 *.json
 
 # User defined extras
