@@ -25,7 +25,7 @@ raw_data/
 # Credentials (or files with potentially credentials inside)
 #.env
 .credentials
-secrets.toml
+#secrets.toml
 *.json
 
 # User defined extras
