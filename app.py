@@ -26,15 +26,8 @@ st.markdown(f"Working with {url}")
 
 
 # ============================================================
-# CONFIG — FEATURE MEDIANS
-# (hardcoded from training data — update if model is retrained)
+# REMOVED: CONFIG — FEATURE MEDIANS
 # ============================================================
-FEATURE_MEDIANS = {
-    "vo2_max": 45.2,
-    "resting_heart_rate_bpm": 68.0,
-    "recovery_score": 6.0,
-    "nutrition_score": 5.1
-}
 
 # ============================================================
 # PAGE SETUP
@@ -93,29 +86,11 @@ with st.expander("➕ Improve your prediction (optional)"):
         )
 
 # ============================================================
-# SECTION 2 — IMPUTATION
+# SECTION 2 — IMPUTATION REMOVED
 # ============================================================
-def impute_features(user_input: dict, marathon_weather: str) -> dict:
 
-    # Median imputation — health metrics
-    for col, median in FEATURE_MEDIANS.items():
-        if user_input.get(col, 0) == 0:
-            user_input[col] = median
-
-    # Zero imputation — count/behavioural
-    user_input['previous_marathon_count'] = user_input.get('previous_marathon_count', 0)
-    user_input['run_club_attendance_rate'] = user_input.get('run_club_attendance_rate', 0)
-
-    # Weather OHE
-    user_input['marathon_weather_Cold']  = 1 if marathon_weather == 'Cold'  else 0
-    user_input['marathon_weather_Hot']   = 1 if marathon_weather == 'Hot'   else 0
-    user_input['marathon_weather_Rainy'] = 1 if marathon_weather == 'Rainy' else 0
-    user_input['marathon_weather_Windy'] = 1 if marathon_weather == 'Windy' else 0
-
-    return user_input
-
-# Build feature vector
-user_input = {
+# CHANGED from user_input (+added weather): Build feature vector
+feature_vector = {
     'age':                        age,
     'running_experience_months':  running_experience_months,
     'weekly_mileage_km':          weekly_mileage_km,
@@ -128,9 +103,35 @@ user_input = {
     'nutrition_score':            nutrition_score,
     'previous_marathon_count':    previous_marathon_count,
     'run_club_attendance_rate':   run_club_attendance,
+    'marathon_weather_Cold':      1 if marathon_weather == 'Cold'  else 0,
+    'marathon_weather_Hot':       1 if marathon_weather == 'Hot'   else 0,
+    'marathon_weather_Rainy':     1 if marathon_weather == 'Rainy' else 0,
+    'marathon_weather_Windy':     1 if marathon_weather == 'Windy' else 0,
 }
 
-feature_vector = impute_features(user_input, marathon_weather)
+response = requests.get(url, params=feature_vector)
+
+# REMOVED: feature_vector = impute_features(user_input, marathon_weather)
+
+# ============================================================
+# VALIDATION - tbd
+# ============================================================
+missing_fields = []
+
+if age == 0:
+    missing_fields.append("Age")
+if running_experience_months == 0:
+    missing_fields.append("Running Experience")
+if weekly_mileage_km == 0:
+    missing_fields.append("Weekly Mileage")
+
+if missing_fields:
+    st.warning(f"⚠️ Please complete the required fields: {', '.join(missing_fields)}")
+
+
+
+
+
 
 # ============================================================
 # SECTION 3 — API CALL + PREDICTION
@@ -164,8 +165,9 @@ if st.button("🏁 Predict My Finish Time"):
             st.info("📊 Feature breakdown — coming soon")
 
     else:
-        st.error(f"API error: {response.status_code}")
+        st.error(f"API error: {response.status_code} — {response.text}")
 
     # Debug — remove before Demo Day
     with st.expander("🔍 Debug — Feature Vector"):
         st.json(feature_vector)
+        print(response.text)  # shows the full error from API
