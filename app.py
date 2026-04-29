@@ -1,5 +1,6 @@
 import requests
 import os
+import random
 import streamlit as st
 from pprint import  pprint
 
@@ -24,10 +25,9 @@ st.set_page_config(page_title="MarathonIQ", layout="wide")
 with open('.streamlit/style.css') as f:
     st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
-
 # Just displaying the source for the API. Remove this in your final version.
 
-st.markdown(f"Working with {url_base}")
+#st.markdown(f"Working with {url_base}")
 
 #st.markdown("Now, the rest is up to you. Start creating your page.")
 
@@ -46,7 +46,7 @@ st.markdown("""
             🏃 MarathonIQ 🏃
         </h1>
         <p style="color: black; font-size: 1.2rem;">
-            What actually predicts your marathon time?
+            Enter your training data. Get your predicted finish time.
         </p>
     </div>
 """, unsafe_allow_html=True)
@@ -56,22 +56,21 @@ st.markdown("---")
 # SECTION 1 — USER INPUTS
 # ============================================================
 
-st.header("Your Training Profile")
+st.header("Your Profile")
 level = st.radio("", ["🌞 First Marathon", "🏆 Already Ran a Marathon"], horizontal=True)
 
 if level == "🌞 First Marathon":
     url = url_base + '/general'
     # --- MUST HAVE ---
-    st.subheader("Required")
+    st.subheader("Tell us about your training")
     col1, col2 = st.columns(2)
-
     with col1:
-        age = st.slider("Age", 18, 75, 35)
-        running_experience_months = st.slider("Running Experience (months)", 0, 240, 24)
-        weekly_mileage_km = st.slider("Weekly Mileage (km)", 0, 150, 40)
+        age = st.number_input("Age", 18, 100, 35)
+        running_experience_months = st.number_input("Running Experience (months)", 0, 240, 0)
+        weekly_mileage_km = st.number_input("Weekly Mileage (km/week)", 0, 200, 0)
 
     with col2:
-        injury_count = st.slider("Injuries this training cycle", 0, 10, 0)
+        injury_count = st.number_input("Injuries this training cycle", 0, 10, 0)
         injury_severity = st.selectbox(
             "Injury Severity",
             options=[0, 1, 2, 3],
@@ -86,18 +85,34 @@ if level == "🌞 First Marathon":
 
     # --- NICE TO HAVE ---
     with st.expander("➕ Improve your prediction (optional)"):
-        st.caption("These inputs are optional — we'll estimate them if left at 0")
+        st.caption("Optional inputs — if not provided, values will be automatically set to 0 or to the median of our dataset.")
 
         col3, col4 = st.columns(2)
 
         with col3:
-            vo2_max = st.slider("VO2 Max", 0.0, 80.0, 0.0)
-            resting_heart_rate = st.slider("Resting Heart Rate (bpm)", 0, 100, 0)
-            recovery_score = st.slider("Recovery Score (1-10)", 0.0, 10.0, 0.0)
+            vo2_max = st.number_input("VO2 Max", 30, 85, 45)
+            resting_heart_rate = st.number_input("Resting Heart Rate (bpm)", 30, 100, 68)
+            previous_marathon_count = st.number_input("Previous Marathons", 0, 100, 0)
 
         with col4:
-            previous_marathon_count = st.slider("Previous Marathons", 0, 20, 0)
-            run_club_attendance = st.slider("Run Club Attendance (%)", 0, 100, 0)
+            recovery_score = st.selectbox(
+                "Recovery Score - Body Battery - Readiness Score - Nightly Recharge",
+                options=[0, 3, 6, 7, 9],
+                format_func=lambda x: {0: "I don't track this",
+                                       3: "Low — fatigued, body clearly needs rest",
+                                       6: "Moderate — somewhat tired, lighter day advised",
+                                       7: "Good — well rested, moderate effort is fine",
+                                       9: "High — fully recovered, ready to push hard"}[x]
+            )
+
+            run_club_attendance = st.selectbox(
+                "Run Club Attendance",
+                options=[12, 37, 62, 87],
+                format_func=lambda x: {12: "Never",
+                                       37: "Rarely — once a month or less",
+                                       62: "Sometimes — a few times a month",
+                                       87: "Often — weekly or more"}[x]
+            )
             marathon_weather = st.selectbox(
                 "Race Day Weather",
                 options=["Neutral", "Cold", "Hot", "Rainy", "Windy"]
@@ -122,7 +137,7 @@ if level == "🌞 First Marathon":
         'marathon_weather_Windy':     1 if marathon_weather == 'Windy' else 0,
     }
 
-    response = requests.get(url, params=feature_vector)
+    #response = requests.get(url, params=feature_vector)
 
 # ============================================================
 # DOING THE SAME FOR THE EXPERT MODEL
@@ -131,21 +146,22 @@ if level == "🌞 First Marathon":
 else:
     url = url_base + '/expert'
     # --- MUST HAVE ---
-    st.subheader("Required - add personal best")
+    st.subheader("Tell us about your training")
     col1, col2 = st.columns(2)
-
     with col1:
-        age = st.slider("Age", 18, 75, 35)
-        running_experience_months = st.slider("Running Experience (months)", 0, 240, 24)
-        weekly_mileage_km = st.slider("Weekly Mileage (km)", 0, 150, 40)
-        personal_best = st.time_input("Personal Best", value=None)
-        if personal_best is not None:
-            personal_best_minutes = personal_best.hour * 60 + personal_best.minute
+        age = st.number_input("Age", 18, 100, 35)
+        running_experience_months = st.number_input("Running Experience (months)", 0, 240, 0)
+        weekly_mileage_km = st.number_input("Weekly Mileage (km/week)", 0, 200, 0)
+        personal_best = st.text_input("Personal Best (HH:MM:SS)", value="00:00:00", max_chars=8)
+        st.caption("ex: 03:45:30")
+        if personal_best and len(personal_best) == 8:
+            parts = personal_best.split(":")
+            personal_best_minutes = int(parts[0]) * 60 + int(parts[1]) + round(int(parts[2]) / 60)
         else:
             personal_best_minutes = None
 
     with col2:
-        injury_count = st.slider("Injuries this training cycle", 0, 10, 0)
+        injury_count = st.number_input("Injuries this training cycle", 0, 10, 0)
         injury_severity = st.selectbox(
             "Injury Severity",
             options=[0, 1, 2, 3],
@@ -160,22 +176,38 @@ else:
 
     # --- NICE TO HAVE ---
     with st.expander("➕ Improve your prediction (optional)"):
-        st.caption("These inputs are optional — we'll estimate them if left at 0")
+        st.caption("Optional inputs — if not provided, values will be automatically set to 0 or to the median of our dataset.")
 
         col3, col4 = st.columns(2)
 
         with col3:
-            vo2_max = st.slider("VO2 Max", min_value=0, max_value=80, value=0, step=1)
-            resting_heart_rate = st.slider("Resting Heart Rate (bpm)", 0, 100, 0)
-            recovery_score = st.slider("Recovery Score (1-10)", 0.0, 10.0, 0.0)
+            vo2_max = st.number_input("VO2 Max", 30, 85, 45)
+            resting_heart_rate = st.number_input("Resting Heart Rate (bpm)", 30, 100, 68)
+            previous_marathon_count = st.number_input("Previous Marathons", 0, 100, 0)
 
         with col4:
-            previous_marathon_count = st.slider("Previous Marathons", 0, 20, 0)
-            run_club_attendance = st.slider("Run Club Attendance (%)", 0, 100, 0)
+            recovery_score = st.selectbox(
+                "Recovery Score - Body Battery - Readiness Score - Nightly Recharge",
+                options=[0, 3, 6, 7, 9],
+                format_func=lambda x: {0: "I don't track this",
+                                       3: "Low — fatigued, body clearly needs rest",
+                                       6: "Moderate — somewhat tired, lighter day advised",
+                                       7: "Good — well rested, moderate effort is fine",
+                                       9: "High — fully recovered, ready to push hard"}[x]
+            )
+            run_club_attendance = st.selectbox(
+                "Run Club Attendance",
+                options=[12, 37, 62, 87],
+                format_func=lambda x: {12: "Never",
+                                       37: "Rarely — once a month or less",
+                                       62: "Sometimes — a few times a month",
+                                       87: "Often — weekly or more"}[x]
+            )
             marathon_weather = st.selectbox(
                 "Race Day Weather",
                 options=["Neutral", "Cold", "Hot", "Rainy", "Windy"]
             )
+
 
     # Build feature vector
     feature_vector = {
@@ -197,7 +229,7 @@ else:
         'marathon_weather_Windy':     1 if marathon_weather == 'Windy' else 0,
     }
 
-    response = requests.get(url, params=feature_vector)
+    #response = requests.get(url, params=feature_vector)
 
 # ============================================================
 # SECTION 3 — API CALL + PREDICTION
@@ -209,13 +241,11 @@ if age == 0:
     missing_fields.append("Age")
 if running_experience_months == 0:
     missing_fields.append("Running Experience")
-if weekly_mileage_km == 0:
-    missing_fields.append("Weekly Mileage")
 if level == "🏆 Already Ran a Marathon":
     if personal_best_minutes is None or personal_best_minutes == 0:
         missing_fields.append("Personal Best")
-
-st.markdown("---")
+if weekly_mileage_km < 10:
+    missing_fields.append("Weekly Mileage (minimum 10km/week)")
 
 if st.button("🏁 Predict My Finish Time"):
 
@@ -223,8 +253,8 @@ if st.button("🏁 Predict My Finish Time"):
         st.warning(f"⚠️ Please complete: {', '.join(missing_fields)}")
 
     else:
-        with st.spinner("Calculating..."):
-            st.write(feature_vector)
+        with st.spinner("Crunching your training data..."):
+            #st.write(feature_vector)
             response = requests.post(url, json=feature_vector)
 
         if response.status_code == 200:
@@ -232,19 +262,40 @@ if st.button("🏁 Predict My Finish Time"):
             prediction = result.get("predicted_finish_time", None)
 
             if prediction is not None:
+
                 hours = int(prediction // 60)
                 minutes = int(prediction % 60)
+
+                pace = prediction / 42.195
+
+                pace_min = int(pace)
+                pace_sec = int(round((pace - pace_min) * 60))
+
+                if pace_sec == 60:
+                    pace_min += 1
+                    pace_sec = 0
 
                 st.markdown("---")
                 st.metric(
                     label="Predicted Finish Time",
-                    value=f"{hours}h {minutes:02d}min"
+                    value=f"{hours}h {minutes:02d}min ➡️ {pace_min}:{pace_sec:02d} min/km"
                 )
+                st.caption("Typical variance: +/- 15-20 min")
+                st.caption("Based on a synthetic dataset of 80,000 runners.")
 
                 st.info("📊 Feature breakdown — coming soon")
+
+                gif = random.choice([
+                    "media/forest.gif",
+                    "media/rocket.gif",
+                    "media/wonderwoman.gif"
+                ])
+                st.image(gif)
 
         else:
             st.error(f"API error: {response.status_code}")
 
-        with st.expander("🔍 Debug — Feature Vector"):
-            st.json(feature_vector)
+        #with st.expander("🔍 Debug — Feature Vector"):
+            #st.json(feature_vector)
+else:
+    st.info("Fill in your stats above to see your prediction!")
