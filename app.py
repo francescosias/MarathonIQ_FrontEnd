@@ -1,6 +1,11 @@
 import requests
 import os
+import re
+import shap
+import matplotlib.pyplot as plt # ADDED for SHAP dasboard
+import pandas as pd
 import streamlit as st
+import numpy as np
 from pprint import  pprint
 
 # Define the base URI of the API
@@ -31,14 +36,6 @@ st.markdown(f"Working with {url_base}")
 
 #st.markdown("Now, the rest is up to you. Start creating your page.")
 
-<<<<<<< HEAD
-
-# ============================================================
-# REMOVED: CONFIG — FEATURE MEDIANS
-# ============================================================
-
-=======
->>>>>>> master
 # ============================================================
 # PAGE SETUP
 # ============================================================
@@ -130,57 +127,9 @@ if level == "🌞 First Marathon":
         'marathon_weather_Windy':     1 if marathon_weather == 'Windy' else 0,
     }
 
-    response = requests.get(url, params=feature_vector)
+    response = requests.post(url, json=feature_vector)
 
 # ============================================================
-<<<<<<< HEAD
-# SECTION 2 — IMPUTATION REMOVED
-# ============================================================
-
-# CHANGED from user_input (+added weather): Build feature vector
-feature_vector = {
-    'age':                        age,
-    'running_experience_months':  running_experience_months,
-    'weekly_mileage_km':          weekly_mileage_km,
-    'injury_count':               injury_count,
-    'injury_severity':            injury_severity,
-    'course_difficulty':          course_difficulty,
-    'vo2_max':                    vo2_max,
-    'resting_heart_rate_bpm':     resting_heart_rate,
-    'recovery_score':             recovery_score,
-    'nutrition_score':            nutrition_score,
-    'previous_marathon_count':    previous_marathon_count,
-    'run_club_attendance_rate':   run_club_attendance,
-    'marathon_weather_Cold':      1 if marathon_weather == 'Cold'  else 0,
-    'marathon_weather_Hot':       1 if marathon_weather == 'Hot'   else 0,
-    'marathon_weather_Rainy':     1 if marathon_weather == 'Rainy' else 0,
-    'marathon_weather_Windy':     1 if marathon_weather == 'Windy' else 0,
-}
-
-response = requests.get(url, params=feature_vector)
-
-# REMOVED: feature_vector = impute_features(user_input, marathon_weather)
-
-# ============================================================
-# VALIDATION - tbd
-# ============================================================
-missing_fields = []
-
-if age == 0:
-    missing_fields.append("Age")
-if running_experience_months == 0:
-    missing_fields.append("Running Experience")
-if weekly_mileage_km == 0:
-    missing_fields.append("Weekly Mileage")
-
-if missing_fields:
-    st.warning(f"⚠️ Please complete the required fields: {', '.join(missing_fields)}")
-
-
-
-
-
-=======
 # DOING THE SAME FOR THE EXPERT MODEL
 # ============================================================
 
@@ -254,7 +203,6 @@ else:
     }
 
     response = requests.get(url, params=feature_vector)
->>>>>>> master
 
 # ============================================================
 # SECTION 3 — API CALL + PREDICTION
@@ -280,22 +228,16 @@ if st.button("🏁 Predict My Finish Time"):
         st.warning(f"⚠️ Please complete: {', '.join(missing_fields)}")
 
     else:
-<<<<<<< HEAD
-        st.error(f"API error: {response.status_code} — {response.text}")
-
-    # Debug — remove before Demo Day
-    with st.expander("🔍 Debug — Feature Vector"):
-        st.json(feature_vector)
-        print(response.text)  # shows the full error from API
-=======
         with st.spinner("Calculating..."):
             st.write(feature_vector)
             response = requests.post(url, json=feature_vector)
-
+# ADDED: SHAP reponse statement
         if response.status_code == 200:
             result = response.json()
             prediction = result.get("predicted_finish_time", None)
-
+            shap_values = result.get('shap_values', {})
+            base_value = result.get('base_value', 0)
+#END
             if prediction is not None:
                 hours = int(prediction // 60)
                 minutes = int(prediction % 60)
@@ -306,11 +248,84 @@ if st.button("🏁 Predict My Finish Time"):
                     value=f"{hours}h {minutes:02d}min"
                 )
 
-                st.info("📊 Feature breakdown — coming soon")
+                #st.write(type(shap_values))
+                st.write(shap_values)
 
+                #SHAP WATERFALL CHART
+
+                if shap_values:
+                    st.subheader("What's driving your time")
+
+                    # Feature name mapping → display labels
+                    label_map = {
+                        'age': 'Age',
+                        'running_experience_months': 'Running Experience (months)',
+                        'weekly_mileage_km': 'Weekly Mileage (km)',
+                        'injury_count': 'Injuries',
+                        'injury_severity': 'Injury Severity',
+                        'course_difficulty': 'Course Difficulty',
+                        'vo2_max': 'VO2 Max',
+                        'resting_heart_rate_bpm': 'Resting HR (bpm)',
+                        'recovery_score': 'Recovery Score',
+                        'previous_marathon_count': 'Previous Marathons',
+                        'run_club_attendance_rate': 'Run Club Attendance',
+                        'marathon_weather_Cold': 'Cold Weather',
+                        'marathon_weather_Hot': 'Hot Weather',
+                        'marathon_weather_Rainy': 'Rainy Weather',
+                        'marathon_weather_Windy': 'Windy Weather',
+                        'personal_best_minutes': 'Personal Best (min)',
+                    }
+
+                    # Reconstruct SHAP Explanation object from API response
+                    feature_names = list(shap_values.keys())
+                    shap_array = np.array(list(shap_values.values()))
+                    feature_values = [feature_vector.get(name, 0) for name in feature_names]
+                    display_names = [label_map.get(name, name) for name in feature_names]
+
+                    explanation = shap.Explanation(
+                        values=shap_array,
+                        base_values=base_value,
+                        data=feature_values,
+                        feature_names=display_names
+                    )
+
+                    fig, ax = plt.subplots(figsize=(10, 6))
+                    shap.plots.waterfall(explanation, max_display=10, show=False)
+                    ax = plt.gca()
+                    ax.set_xlabel("Time (min)", labelpad=1)
+
+                    # Hide SHAP's f(x) and E[f(X)] labels by making them invisible
+                    for text in fig.findobj(plt.Text):
+                        actual = text.get_text()
+                        if ('f(x)' in actual
+                            or 'E[f(X)]' in actual
+                            or re.search(r'=\s*[\d\.]+', actual)):
+                            text.set_visible(False)
+
+                    # Add our own labels using axes coordinates
+                    ax.annotate(f"Your time = {prediction:.1f}",
+                                xy=(prediction, 1), xycoords=('data', 'axes fraction'),
+                                xytext=(0, 35), textcoords='offset points',
+                                ha='center', fontsize=10, color='gray')
+
+                    ax.annotate(f"Avg runner = {base_value:.1f}",
+                                xy=(base_value, 0), xycoords=('data', 'axes fraction'),
+                                xytext=(0, -35), textcoords='offset points',
+                                ha='center', fontsize=10, color='gray')
+
+                    st.pyplot(fig, bbox_inches='tight')
+
+                    st.caption("""
+                    *Note: For VO2 Max, Resting HR, and Recovery Score, median values are assumed if not provided
+                    (45.2, 68.0, 6.0). These contribute to the prediction even when shown as 0 in your input.*
+                    """)
+
+
+                    plt.close()
+
+                # END
         else:
             st.error(f"API error: {response.status_code}")
 
         with st.expander("🔍 Debug — Feature Vector"):
             st.json(feature_vector)
->>>>>>> master
