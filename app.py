@@ -40,22 +40,25 @@ with open('.streamlit/style.css') as f:
 # PAGE SETUP
 # ============================================================
 
+
+# Logo
+st.markdown(
+    f'<div style="text-align: center;"><img src="data:image/png;base64,{__import__("base64").b64encode(open("media/MIQ-white.png", "rb").read()).decode()}" width="300"></div>',
+    unsafe_allow_html=True
+)
+# Tagline below logo
 st.markdown("""
-    <div style="
-        background: transparent;
-        padding: 1rem 0 0.5rem 0;
-        margin: 0;
-        text-align: center;
-    ">
-        <h1 style="color: black; margin-bottom: 0.5rem;">
-            🏃🏻‍♂️‍➡️ MarathonIQ 🏃🏾‍♀️‍➡️
-        </h1>
+    <div style="text-align: center; padding: 0.5rem 0 1rem 0;">
         <p style="color: black; font-size: 1.2rem;">
             Tell us about your training and we'll predict your finish time, plus show which factors drive it most.
         </p>
     </div>
 """, unsafe_allow_html=True)
+
 st.markdown("---")
+
+
+
 
 # ============================================================
 # SECTION 1 — USER INPUTS
@@ -107,7 +110,7 @@ if level == "🌞 First Marathon":
                                        3: "Low — fatigued",
                                        6: "Moderate — somewhat tired",
                                        7: "Good — well rested",
-                                       9: "High — fully recovered"}[x]
+                                       9: "High — fully recovered, ready to push hard"}[x]
             )
 
             run_club_attendance = st.selectbox(
